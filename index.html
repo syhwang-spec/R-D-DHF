@@ -1,0 +1,1504 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ISO 13485 의료기기 개발 프로세스 & DHF 관리 시스템</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        medical: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0284c7',
+                            600: '#0369a1',
+                            700: '#075985',
+                            800: '#0c4a6e',
+                            900: '#0a3751'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        @media print {
+            header, nav, .no-print { display: none !important; }
+            body { background: white; }
+            .print-full { width: 100% !important; margin: 0 !important; padding: 0 !important; }
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased min-h-screen flex flex-col">
+
+    <!-- HEADER -->
+    <header class="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-40 shadow-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <!-- Logo & System Title -->
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-medical-500 to-emerald-400 flex items-center justify-center shadow-lg shadow-medical-500/30">
+                        <i class="fa-solid font-bold text-white text-xl fa-notes-medical"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-lg tracking-tight text-white">ISO 13485 QMS</span>
+                            <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Clause 7.3</span>
+                        </div>
+                        <p class="text-xs text-slate-400">의료기기 설계 및 개발 프로세스 관리자</p>
+                    </div>
+                </div>
+
+                <!-- Device Project Selector -->
+                <div class="flex items-center gap-3">
+                    <div class="hidden sm:flex flex-col text-right">
+                        <span class="text-xs text-slate-400">현재 선택 제품</span>
+                        <span id="currentDeviceClass" class="text-xs font-medium text-amber-400">Class II (2등급)</span>
+                    </div>
+                    <select id="deviceSelect" onchange="switchDevice(this.value)" class="bg-slate-800 text-white text-sm font-semibold rounded-lg border border-slate-700 px-3 py-2 focus:ring-2 focus:ring-medical-500 focus:outline-none cursor-pointer hover:bg-slate-700 transition">
+                        <!-- Devices populated via JS -->
+                    </select>
+                    <button onclick="openNewDeviceModal()" class="bg-medical-600 hover:bg-medical-500 text-white px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow-sm transition">
+                        <i class="fa-solid fa-plus text-xs"></i>
+                        <span class="hidden md:inline">기기 추가</span>
+                    </button>
+                    <button onclick="exportDataJSON()" title="데이터 내보내기" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded-lg text-sm transition border border-slate-700">
+                        <i class="fa-solid fa-download"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- NAVIGATION TABS -->
+    <div class="bg-white border-b border-slate-200 shadow-sm sticky top-16 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col md:flex-row md:items-center justify-between py-2 gap-4">
+                <nav class="flex space-x-1 sm:space-x-4 overflow-x-auto pb-1 md:pb-0" id="mainTabs">
+                    <button onclick="switchTab('portfolio')" id="tab-portfolio" class="tab-btn active text-medical-600 border-b-2 border-medical-600 px-3 py-2 text-sm font-semibold flex items-center gap-2 whitespace-nowrap">
+                        <i class="fa-solid fa-timeline"></i> 전체 제품 타임라인 요약
+                    </button>
+                    <button onclick="switchTab('dashboard')" id="tab-dashboard" class="tab-btn text-slate-500 hover:text-slate-700 border-b-2 border-transparent px-3 py-2 text-sm font-medium flex items-center gap-2 whitespace-nowrap">
+                        <i class="fa-solid fa-chart-pie"></i> 프로세스 대시보드
+                    </button>
+                    <button onclick="switchTab('tasks')" id="tab-tasks" class="tab-btn text-slate-500 hover:text-slate-700 border-b-2 border-transparent px-3 py-2 text-sm font-medium flex items-center gap-2 whitespace-nowrap">
+                        <i class="fa-solid fa-list-check"></i> Task & 업무 수행일지
+                    </button>
+                    <button onclick="switchTab('dhf')" id="tab-dhf" class="tab-btn text-slate-500 hover:text-slate-700 border-b-2 border-transparent px-3 py-2 text-sm font-medium flex items-center gap-2 whitespace-nowrap">
+                        <i class="fa-solid fa-folder-tree"></i> DHF (설계이력파일) 매트릭스
+                    </button>
+                    <button onclick="switchTab('team')" id="tab-team" class="tab-btn text-slate-500 hover:text-slate-700 border-b-2 border-transparent px-3 py-2 text-sm font-medium flex items-center gap-2 whitespace-nowrap">
+                        <i class="fa-solid fa-users"></i> 담당자 현황
+                    </button>
+                </nav>
+
+                <div class="flex items-center gap-2 justify-end">
+                    <button onclick="openAddTaskModal()" class="bg-gradient-to-r from-medical-600 to-medical-700 text-white text-xs sm:text-sm font-semibold px-4 py-2 rounded-lg shadow-sm hover:from-medical-500 hover:to-medical-600 transition flex items-center gap-2">
+                        <i class="fa-solid fa-square-plus"></i> ISO Task 등록
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN CONTENT CONTAINER -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        <!-- VIEW 0: PORTFOLIO & TIMELINE SUMMARY -->
+        <div id="view-portfolio" class="space-y-6">
+            
+            <!-- Portfolio Top Master KPI Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-gradient-to-br from-slate-900 to-slate-800 text-white p-5 rounded-xl shadow-md flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">총 개발 제품군</p>
+                        <h3 id="portTotalDevices" class="text-2xl font-bold mt-1">0개</h3>
+                        <p class="text-xs text-slate-300 mt-1">ISO 13485 적용 제품</p>
+                    </div>
+                    <div class="w-12 h-12 bg-slate-700/60 text-amber-400 rounded-xl flex items-center justify-center text-xl font-bold">
+                        <i class="fa-solid fa-boxes-stacked"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">전체 평균 진척률</p>
+                        <h3 id="portAvgProgress" class="text-2xl font-bold text-emerald-600 mt-1">0%</h3>
+                        <p class="text-xs text-emerald-600 mt-1 flex items-center gap-1"><i class="fa-solid fa-chart-line"></i> 전체 완료/승인율</p>
+                    </div>
+                    <div class="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 text-xl font-bold">
+                        <i class="fa-solid fa-percent"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">통합 DHF 산출물</p>
+                        <h3 id="portTotalDHF" class="text-2xl font-bold text-slate-800 mt-1">0건</h3>
+                        <p class="text-xs text-slate-400 mt-1">전체 드라이브 문서 연동</p>
+                    </div>
+                    <div class="w-12 h-12 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600 text-xl font-bold">
+                        <i class="fa-brands fa-google-drive"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">전체 검토/승인 대기</p>
+                        <h3 id="portPendingReview" class="text-2xl font-bold text-amber-600 mt-1">0건</h3>
+                        <p class="text-xs text-amber-600 mt-1">책임자 결재 필요</p>
+                    </div>
+                    <div class="w-12 h-12 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600 text-xl font-bold">
+                        <i class="fa-solid fa-hourglass-half"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Portfolio Header Banner -->
+            <div class="flex items-center justify-between bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                <div>
+                    <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                        <i class="fa-solid fa-diagram-next text-medical-600"></i>
+                        의료기기 제품별 타임라인 & 개발 현황 요약
+                    </h2>
+                    <p class="text-xs text-slate-500">개발 중인 각 의료기기의 ISO 13485 7.3절 진행 수준과 타임라인 스텝</p>
+                </div>
+                <button onclick="openNewDeviceModal()" class="bg-medical-600 hover:bg-medical-700 text-white text-xs font-semibold px-3 py-2 rounded-lg shadow-sm transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-plus"></i> 신규 제품 추가
+                </button>
+            </div>
+
+            <!-- Portfolio Devices Timeline Cards Container -->
+            <div id="portfolioCardsContainer" class="space-y-6">
+                <!-- Dynamically Populated -->
+            </div>
+        </div>
+
+        <!-- VIEW 1: PROCESS DASHBOARD -->
+        <div id="view-dashboard" class="hidden space-y-6">
+            
+            <!-- Dashboard Master Metrics -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <p class="text-xs text-slate-500 font-semibold uppercase">등록된 총 Task 수</p>
+                    <h3 id="statTotalTasks" class="text-2xl font-bold text-slate-800 mt-1">0</h3>
+                </div>
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <p class="text-xs text-slate-500 font-semibold uppercase">프로세스 달성 진척율</p>
+                    <h3 id="statProgressRate" class="text-2xl font-bold text-emerald-600 mt-1">0%</h3>
+                </div>
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <p class="text-xs text-slate-500 font-semibold uppercase">구글 드라이브 연동 문서</p>
+                    <h3 id="statDriveFiles" class="text-2xl font-bold text-amber-600 mt-1">0개</h3>
+                </div>
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <p class="text-xs text-slate-500 font-semibold uppercase">승인 대기 항목</p>
+                    <h3 id="statPendingReview" class="text-2xl font-bold text-blue-600 mt-1">0개</h3>
+                </div>
+            </div>
+
+            <!-- ISO Phase Pipeline Stepper -->
+            <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                <h3 class="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-bars-progress text-medical-600"></i> ISO 13485:2016 7.3 개발 단계별 진행률
+                </h3>
+                <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3" id="phasePipelineContainer">
+                    <!-- Dynamic Stepper Cards -->
+                </div>
+            </div>
+
+            <!-- Dashboard Charts Row -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Status Doughnut Chart -->
+                <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+                    <h3 class="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-chart-pie text-slate-500"></i> 상태별 Task 비중
+                    </h3>
+                    <div class="h-64 relative flex items-center justify-center">
+                        <canvas id="statusChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Phase Progress Bar Chart -->
+                <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm lg:col-span-2">
+                    <h3 class="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-bars-progress text-slate-500"></i> ISO 13485 절차별 달성률 (%)
+                    </h3>
+                    <div class="h-64 relative">
+                        <canvas id="phaseProgressChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Task Work Log Feed -->
+            <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2">
+                        <i class="fa-solid fa-clock-rotate-left text-slate-500"></i> 최근 등록 및 작업 진행 기록 (Recent Activity)
+                    </h3>
+                    <button onclick="switchTab('tasks')" class="text-xs font-semibold text-medical-600 hover:text-medical-800">전체보기 <i class="fa-solid fa-chevron-right text-[10px]"></i></button>
+                </div>
+                <div class="divide-y divide-slate-100" id="recentActivityList">
+                    <!-- Dynamic Activity Items -->
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW 2: TASK & WORK LOG MANAGEMENT -->
+        <div id="view-tasks" class="hidden space-y-6">
+            
+            <!-- Filters & Controls Bar -->
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
+                <div class="flex flex-wrap items-center gap-2 flex-1">
+                    <!-- Search input -->
+                    <div class="relative min-w-[200px] flex-1">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-sm"></i>
+                        <input type="text" id="taskSearch" oninput="renderTaskList()" placeholder="Task명, 담당자, 키워드 검색..." class="w-full pl-9 pr-3 py-1.5 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-medical-500">
+                    </div>
+
+                    <!-- ISO Phase Filter -->
+                    <select id="filterPhase" onchange="renderTaskList()" class="bg-slate-50 border border-slate-200 text-slate-700 text-xs font-medium rounded-lg px-3 py-2 focus:ring-2 focus:ring-medical-500">
+                        <option value="ALL">전체 ISO 7.3 절차</option>
+                        <option value="7.3.2">7.3.2 설계 및 개발 계획</option>
+                        <option value="7.3.3">7.3.3 설계 및 개발 입력</option>
+                        <option value="7.3.4">7.3.4 설계 및 개발 출력</option>
+                        <option value="7.3.5">7.3.5 설계 및 개발 검토</option>
+                        <option value="7.3.6">7.3.6 설계 및 개발 검증</option>
+                        <option value="7.3.7">7.3.7 설계 및 개발 유효성확인</option>
+                        <option value="7.3.8">7.3.8 설계 및 개발 이관</option>
+                        <option value="7.3.9">7.3.9 설계 변경 관리</option>
+                    </select>
+
+                    <!-- Status Filter -->
+                    <select id="filterStatus" onchange="renderTaskList()" class="bg-slate-50 border border-slate-200 text-slate-700 text-xs font-medium rounded-lg px-3 py-2 focus:ring-2 focus:ring-medical-500">
+                        <option value="ALL">전체 진행 상태</option>
+                        <option value="진행전">진행전</option>
+                        <option value="진행중">진행중</option>
+                        <option value="검토대기">검토대기</option>
+                        <option value="승인완료">승인완료</option>
+                    </select>
+
+                    <!-- Assignee Filter -->
+                    <select id="filterAssignee" onchange="renderTaskList()" class="bg-slate-50 border border-slate-200 text-slate-700 text-xs font-medium rounded-lg px-3 py-2 focus:ring-2 focus:ring-medical-500">
+                        <option value="ALL">전체 담당자</option>
+                    </select>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <button onclick="resetFilters()" class="text-xs text-slate-500 hover:text-slate-800 px-2 py-1 flex items-center gap-1 border border-slate-200 rounded-md bg-slate-50">
+                        <i class="fa-solid fa-rotate-left"></i> 필터 초기화
+                    </button>
+                </div>
+            </div>
+
+            <!-- Task List Table -->
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="overflow-x-auto custom-scrollbar">
+                    <table class="w-full text-left text-sm border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 text-xs font-semibold uppercase tracking-wider">
+                                <th class="p-3.5 pl-5">ISO 규격 절차</th>
+                                <th class="p-3.5">Task 명 및 상세 업무</th>
+                                <th class="p-3.5">담당자 / 검토자</th>
+                                <th class="p-3.5">상태</th>
+                                <th class="p-3.5">구글 드라이브 연동</th>
+                                <th class="p-3.5">마감일</th>
+                                <th class="p-3.5 text-right pr-5">작업</th>
+                            </tr>
+                        </thead>
+                        <tbody id="taskListTableBody" class="divide-y divide-slate-100 text-slate-700">
+                            <!-- Populated dynamically by JS -->
+                        </tbody>
+                    </table>
+                </div>
+                <!-- Counter footer -->
+                <div class="px-5 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
+                    <span id="taskCountText">총 0개의 Task 중 0개 표시</span>
+                    <span><i class="fa-brands fa-google-drive text-amber-500 mr-1"></i> 구글 드라이브 문서 바로가기 지원</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW 3: DHF MATRIX & AUDIT TRAIL -->
+        <div id="view-dhf" class="hidden space-y-6">
+            <div class="bg-gradient-to-r from-slate-900 to-medical-900 text-white p-6 rounded-xl shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="bg-amber-400 text-slate-900 text-xs font-bold px-2.5 py-0.5 rounded">ISO 13485:2016 7.3.10</span>
+                        <h2 class="text-lg font-bold text-white">DHF (Design History File / 설계 이력 파일) 추적성 매트릭스</h2>
+                    </div>
+                    <p class="text-xs text-slate-300 mt-1 max-w-2xl">
+                        의료기기 품질시스템 적합성 평가(KGMP, CE MDR, FDA QSR) 시 제출 및 제시되는 설계이력파일 종합 목록입니다. 연동된 구글드라이브 문서가 자동으로 정렬됩니다.
+                    </p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="printDHFReport()" class="bg-white hover:bg-slate-100 text-slate-800 text-xs font-bold px-3 py-2 rounded-lg shadow transition flex items-center gap-2">
+                        <i class="fa-solid fa-print"></i> DHF 인쇄 / PDF 출력
+                    </button>
+                </div>
+            </div>
+
+            <!-- DHF Section Matrix Table -->
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden" id="dhfPrintArea">
+                <div class="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+                    <div>
+                        <h3 class="font-bold text-slate-800 text-sm" id="dhfDeviceTitle">DHF Index</h3>
+                        <p class="text-xs text-slate-500">생성일시: <span id="dhfGeneratedDate">2026-08-21</span> | 문서 상태: 최신 반영됨</p>
+                    </div>
+                    <div class="text-xs text-slate-500">
+                        총 산출물 문서: <span id="dhfTotalDocsCount" class="font-bold text-medical-600">0</span>건
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs border-collapse">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-700 font-bold border-b border-slate-200 uppercase tracking-wider">
+                                <th class="p-3">ISO 13485 항목</th>
+                                <th class="p-3">요구되는 산출물 구분 (DHF Document)</th>
+                                <th class="p-3">해당 Task 및 업무 내용 요약</th>
+                                <th class="p-3">담당자</th>
+                                <th class="p-3">승인 상태</th>
+                                <th class="p-3">구글 드라이브 산출물 링크</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dhfMatrixTableBody" class="divide-y divide-slate-200">
+                            <!-- Dynamic DHF rows -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW 4: TEAM & ASSIGNEES -->
+        <div id="view-team" class="hidden space-y-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h2 class="text-lg font-bold text-slate-800">의료기기 개발 담당자 및 RA/QA 검토자 목록</h2>
+                    <p class="text-xs text-slate-500">프로젝트별 Task 할당 및 구글 드라이브 산출물 작성 담당자 리스트</p>
+                </div>
+                <button onclick="openAddMemberModal()" class="bg-medical-600 hover:bg-medical-700 text-white text-xs font-semibold px-3 py-2 rounded-lg transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-user-plus"></i> 담당자 추가
+                </button>
+            </div>
+
+            <!-- Team Members Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="teamMembersGrid">
+                <!-- Dynamic Member Cards -->
+            </div>
+        </div>
+
+    </main>
+
+    <!-- MODAL 1: ADD / EDIT TASK MODAL -->
+    <div id="taskModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-slate-200 overflow-hidden my-8 transform transition-all">
+            <div class="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-pen-to-square text-medical-400"></i>
+                    <h3 id="taskModalTitle" class="font-bold text-base">ISO 13485 Task 작성 / 편집</h3>
+                </div>
+                <button onclick="closeTaskModal()" class="text-slate-400 hover:text-white text-lg"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <form id="taskForm" onsubmit="saveTask(event)" class="p-6 space-y-4 max-h-[80vh] overflow-y-auto custom-scrollbar">
+                <input type="hidden" id="taskId">
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">ISO 13485 절차 <span class="text-red-500">*</span></label>
+                        <select id="modalTaskPhase" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs font-medium focus:ring-2 focus:ring-medical-500 focus:outline-none" required>
+                            <option value="7.3.2">7.3.2 설계 및 개발 계획</option>
+                            <option value="7.3.3">7.3.3 설계 및 개발 입력</option>
+                            <option value="7.3.4">7.3.4 설계 및 개발 출력</option>
+                            <option value="7.3.5">7.3.5 설계 및 개발 검토</option>
+                            <option value="7.3.6">7.3.6 설계 및 개발 검증</option>
+                            <option value="7.3.7">7.3.7 설계 및 개발 유효성확인</option>
+                            <option value="7.3.8">7.3.8 설계 및 개발 이관</option>
+                            <option value="7.3.9">7.3.9 설계 변경 관리</option>
+                        </select>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Task 이름 / 규격 요구명 <span class="text-red-500">*</span></label>
+                        <input type="text" id="modalTaskTitle" required placeholder="예: 위험관리계획서 작성 (ISO 14971)" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-medical-500 focus:outline-none">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">담당자 (Assignee) <span class="text-red-500">*</span></label>
+                        <select id="modalTaskAssignee" required class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-medical-500 focus:outline-none">
+                            <!-- Dynamic Users -->
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">검토/승인자 (Reviewer)</label>
+                        <select id="modalTaskReviewer" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-medical-500 focus:outline-none">
+                            <!-- Dynamic Users -->
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">진행 상태</label>
+                        <select id="modalTaskStatus" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs font-medium focus:ring-2 focus:ring-medical-500 focus:outline-none">
+                            <option value="진행전">진행전</option>
+                            <option value="진행중">진행중</option>
+                            <option value="검토대기">검토대기</option>
+                            <option value="승인완료">승인완료</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">완료 목표일</label>
+                        <input type="date" id="modalTaskDueDate" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-medical-500 focus:outline-none">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">
+                        진행 내용 및 결과 기재 (Work Log / Requirements)
+                    </label>
+                    <textarea id="modalTaskLog" rows="4" placeholder="어떤 업무가 진행되었는지, 회의 결과, 검토 내용, 시험 방법 및 시험 대조 결과를 구체적으로 적으세요..." class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-xs leading-relaxed focus:ring-2 focus:ring-medical-500 focus:outline-none"></textarea>
+                </div>
+
+                <div class="bg-amber-50/70 border border-amber-200 rounded-xl p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                            <i class="fa-brands fa-google-drive text-amber-600 text-sm"></i>
+                            구글 드라이브 산출물 문서 연결 (Google Drive Link)
+                        </label>
+                        <span class="text-[10px] bg-amber-200 text-amber-800 font-semibold px-2 py-0.5 rounded">DHF 산출물</span>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-2 mb-2">
+                        <div class="md:col-span-2">
+                            <input type="url" id="modalDriveUrl" placeholder="https://docs.google.com/document/d/... 공유 링크 URL" class="w-full bg-white border border-amber-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                        </div>
+                        <div>
+                            <input type="text" id="modalDriveDocName" placeholder="문서명 (예: ECG-200-INPUT-01)" class="w-full bg-white border border-amber-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                        </div>
+                    </div>
+                    <p class="text-[11px] text-amber-700">
+                        * 구글 문서, 스프레드시트, PDF, CAD 파일의 공유 URL을 등록하면 ISO 13485 DHF 매트릭스에 원클릭 연결됩니다.
+                    </p>
+                </div>
+
+                <div class="pt-3 border-t border-slate-200 flex items-center justify-between">
+                    <button type="button" onclick="deleteTaskFromModal()" id="btnDeleteTask" class="text-xs text-red-600 hover:text-red-800 font-semibold hidden flex items-center gap-1">
+                        <i class="fa-solid fa-trash"></i> 삭제
+                    </button>
+                    <div class="flex items-center gap-2 ml-auto">
+                        <button type="button" onclick="closeTaskModal()" class="px-4 py-2 bg-slate-100 text-slate-700 hover:bg-slate-200 text-xs font-semibold rounded-lg transition">취소</button>
+                        <button type="submit" class="px-5 py-2 bg-medical-600 hover:bg-medical-700 text-white text-xs font-bold rounded-lg shadow-sm transition">저장하기</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 2: NEW DEVICE MODAL -->
+    <div id="deviceModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden">
+            <div class="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between">
+                <h3 class="font-bold text-sm">신규 의료기기 프로젝트 추가</h3>
+                <button onclick="closeDeviceModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form onsubmit="saveNewDevice(event)" class="p-5 space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">의료기기 제품명 <span class="text-red-500">*</span></label>
+                    <input type="text" id="newDeviceName" required placeholder="예: 디지털 인슐린 펜 (INSU-100)" class="w-full border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-medical-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">의료기기 등급 (Risk Class)</label>
+                    <select id="newDeviceClass" class="w-full border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-medical-500">
+                        <option value="Class I (1등급)">Class I (1등급 - 저위험)</option>
+                        <option value="Class II (2등급)">Class II (2등급 - 중위험)</option>
+                        <option value="Class III (3등급)">Class III (3등급 - 고위험)</option>
+                        <option value="Class IV (4등급)">Class IV (4등급 - 최고위험)</option>
+                    </select>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">개발 시작일</label>
+                        <input type="date" id="newDeviceStartDate" class="w-full border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-medical-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">목표 완료일</label>
+                        <input type="date" id="newDeviceTargetDate" class="w-full border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-medical-500">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">사용 목적 / 품목군 요약</label>
+                    <textarea id="newDeviceDesc" rows="2" placeholder="사용 목적 및 개요 작성..." class="w-full border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-medical-500"></textarea>
+                </div>
+                <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                    <button type="button" onclick="closeDeviceModal()" class="px-3 py-1.5 bg-slate-100 text-slate-700 text-xs font-semibold rounded-lg">취소</button>
+                    <button type="submit" class="px-4 py-1.5 bg-medical-600 hover:bg-medical-700 text-white text-xs font-bold rounded-lg shadow-sm">추가</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 3: MEMBER MODAL -->
+    <div id="memberModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden">
+            <div class="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between">
+                <h3 class="font-bold text-sm">팀원 / RA/QA 담당자 등록</h3>
+                <button onclick="closeMemberModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form onsubmit="saveNewMember(event)" class="p-5 space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">이름 <span class="text-red-500">*</span></label>
+                    <input type="text" id="memberName" required placeholder="홍길동" class="w-full border border-slate-300 rounded-lg p-2 text-xs">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">직책 및 파트</label>
+                    <input type="text" id="memberRole" placeholder="예: SW 개발 리드 / RA 팀장" class="w-full border border-slate-300 rounded-lg p-2 text-xs">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">이메일</label>
+                    <input type="email" id="memberEmail" placeholder="user@company.com" class="w-full border border-slate-300 rounded-lg p-2 text-xs">
+                </div>
+                <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                    <button type="button" onclick="closeMemberModal()" class="px-3 py-1.5 bg-slate-100 text-slate-700 text-xs font-semibold rounded-lg">취소</button>
+                    <button type="submit" class="px-4 py-1.5 bg-medical-600 text-white text-xs font-bold rounded-lg shadow-sm">등록</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT APP LOGIC -->
+    <script>
+        // ISO 13485 Clause Definitions
+        const ISO_PHASES = {
+            "7.3.2": { title: "설계 및 개발 계획", color: "bg-blue-500", desc: "Design & Development Planning" },
+            "7.3.3": { title: "설계 및 개발 입력", color: "bg-purple-500", desc: "Design & Development Inputs" },
+            "7.3.4": { title: "설계 및 개발 출력", color: "bg-pink-500", desc: "Design & Development Outputs" },
+            "7.3.5": { title: "설계 및 개발 검토", color: "bg-amber-500", desc: "Design & Development Review" },
+            "7.3.6": { title: "설계 및 개발 검증", color: "bg-emerald-500", desc: "Design & Development Verification" },
+            "7.3.7": { title: "설계 및 개발 유효성확인", color: "bg-cyan-500", desc: "Design & Development Validation" },
+            "7.3.8": { title: "설계 및 개발 이관", color: "bg-indigo-500", desc: "Design Transfer" },
+            "7.3.9": { title: "설계 변경 관리", color: "bg-red-500", desc: "Control of Design Changes" }
+        };
+
+        // Initial Application State Data
+        const INITIAL_STATE = {
+            currentDeviceId: "dev-1",
+            devices: [
+                { id: "dev-1", name: "스마트 심전도 측정기 (ECG-200)", riskClass: "Class II (2등급)", desc: "홀터 모니터링 기능 탑재 휴대형 ECG 측정 기기", startDate: "2026-01-10", targetDate: "2026-11-30" },
+                { id: "dev-2", name: "AI 영상 진단 소프트웨어 (SaMD-10)", riskClass: "Class II (2등급)", desc: "흉부 X-ray 패치 분석 인공지능 의료용 소프트웨어", startDate: "2026-02-01", targetDate: "2026-09-15" },
+                { id: "dev-3", name: "연속 혈당 측정 시스템 (CGM-300)", riskClass: "Class III (3등급)", desc: "실시간 패치형 연속 혈당 센서 및 모바일 App", startDate: "2026-04-15", targetDate: "2027-03-31" }
+            ],
+            members: [
+                { id: "m-1", name: "김의료", role: "개발 총괄 PM", email: "kim@medtech.com" },
+                { id: "m-2", name: "박HW", role: "회로/하드웨어 설계", email: "park@medtech.com" },
+                { id: "m-3", name: "이SW", role: "임베디드/펌웨어", email: "lee@medtech.com" },
+                { id: "m-4", name: "최RA", role: "RA/QA 규격 책임자", email: "choi@medtech.com" }
+            ],
+            tasks: [
+                {
+                    id: "t-101",
+                    deviceId: "dev-1",
+                    phase: "7.3.2",
+                    title: "ECG-200 개발 계획서 및 마일스톤 작성",
+                    assigneeId: "m-1",
+                    reviewerId: "m-4",
+                    status: "승인완료",
+                    dueDate: "2026-03-15",
+                    log: "개발 목표 및 규격(IEC 60601-1, IEC 60601-2-47) 범위를 정의하고 일정 계획 수립 완료함.",
+                    driveUrl: "https://docs.google.com/document/d/example1",
+                    driveDocName: "ECG-200-DEV-PLAN-v1.0"
+                },
+                {
+                    id: "t-102",
+                    deviceId: "dev-1",
+                    phase: "7.3.2",
+                    title: "위험관리계획서 작성 (ISO 14971)",
+                    assigneeId: "m-4",
+                    reviewerId: "m-1",
+                    status: "승인완료",
+                    dueDate: "2026-03-25",
+                    log: "위험분석 위험수용기준 및 위해요인 식별 테이블(FMEA) 작성 완료.",
+                    driveUrl: "https://docs.google.com/spreadsheets/d/example2",
+                    driveDocName: "ECG-200-RMP-RiskPlan"
+                },
+                {
+                    id: "t-103",
+                    deviceId: "dev-1",
+                    phase: "7.3.3",
+                    title: "사용자 요구사항 명세서 (URS) 도출",
+                    assigneeId: "m-1",
+                    reviewerId: "m-4",
+                    status: "승인완료",
+                    dueDate: "2026-04-10",
+                    log: "임상의 요구사항 및 착용 편의성 요구사항 24개 항목 수집 및 정리.",
+                    driveUrl: "https://docs.google.com/document/d/example3",
+                    driveDocName: "ECG-200-URS-v1.2"
+                },
+                {
+                    id: "t-104",
+                    deviceId: "dev-1",
+                    phase: "7.3.3",
+                    title: "제품 규격 요구사항 정의서 (PRS / 안전규격)",
+                    assigneeId: "m-2",
+                    reviewerId: "m-4",
+                    status: "검토대기",
+                    dueDate: "2026-05-01",
+                    log: "전기기계적 안전성(60601-1) 및 전자파 적합성(60601-1-2) 요구조건 반영.",
+                    driveUrl: "https://docs.google.com/document/d/example4",
+                    driveDocName: "ECG-200-PRS-Spec"
+                },
+                {
+                    id: "t-105",
+                    deviceId: "dev-1",
+                    phase: "7.3.4",
+                    title: "ECG 메인 B/D 회로도 및 BOM 작성",
+                    assigneeId: "m-2",
+                    reviewerId: "m-1",
+                    status: "진행중",
+                    dueDate: "2026-06-20",
+                    log: "Analog Front End (AFE) 칩셋 선정 및 노이즈 필터 회로 설계 중.",
+                    driveUrl: "https://drive.google.com/file/d/example5",
+                    driveDocName: "ECG-200-HW-Schematic"
+                },
+                {
+                    id: "t-106",
+                    deviceId: "dev-1",
+                    phase: "7.3.5",
+                    title: "1차 설계 검토 회의록 (Design Review 1)",
+                    assigneeId: "m-4",
+                    reviewerId: "m-1",
+                    status: "승인완료",
+                    dueDate: "2026-05-10",
+                    log: "설계 입력 대비 HW 회로 구성의 타당성 검토 완료. 지적사항 3건 조치 완료.",
+                    driveUrl: "https://docs.google.com/document/d/example6",
+                    driveDocName: "ECG-200-DR1-Minutes"
+                },
+                {
+                    id: "t-107",
+                    deviceId: "dev-1",
+                    phase: "7.3.6",
+                    title: "전기적 안전성 및 성적서 시험 계획 (Verification)",
+                    assigneeId: "m-2",
+                    reviewerId: "m-4",
+                    status: "진행전",
+                    dueDate: "2026-07-30",
+                    log: "공인시험기관 시험항목 도출 예정.",
+                    driveUrl: "",
+                    driveDocName: ""
+                },
+                {
+                    id: "t-201",
+                    deviceId: "dev-2",
+                    phase: "7.3.2",
+                    title: "SaMD 소프트웨어 개발 계획서 (IEC 62304)",
+                    assigneeId: "m-3",
+                    reviewerId: "m-4",
+                    status: "승인완료",
+                    dueDate: "2026-02-20",
+                    log: "의료기기 소프트웨어 수명주기 프로세스 정의서 수립.",
+                    driveUrl: "https://docs.google.com/document/d/example201",
+                    driveDocName: "SaMD-10-SDP-v1.0"
+                },
+                {
+                    id: "t-202",
+                    deviceId: "dev-2",
+                    phase: "7.3.3",
+                    title: "소프트웨어 요구사항 명세서 (SRS)",
+                    assigneeId: "m-3",
+                    reviewerId: "m-1",
+                    status: "승인완료",
+                    dueDate: "2026-03-30",
+                    log: "AI 추론 모델 입출력 구조 및 GUI 요구사항 명세 정의 완료.",
+                    driveUrl: "https://docs.google.com/document/d/example202",
+                    driveDocName: "SaMD-10-SRS-v1.0"
+                },
+                {
+                    id: "t-301",
+                    deviceId: "dev-3",
+                    phase: "7.3.2",
+                    title: "CGM-300 개발 및 기술문서 작성 계획서",
+                    assigneeId: "m-1",
+                    reviewerId: "m-4",
+                    status: "진행중",
+                    dueDate: "2026-05-15",
+                    log: "3등급 의료기기 허가용 마일스톤 및 임상시험 계획 수립 단계.",
+                    driveUrl: "",
+                    driveDocName: ""
+                }
+            ]
+        };
+
+        // App Storage Global
+        let appState = JSON.parse(localStorage.getItem('iso13485_app_state')) || INITIAL_STATE;
+        let statusChartInstance = null;
+        let phaseChartInstance = null;
+
+        function saveState() {
+            localStorage.setItem('iso13485_app_state', JSON.stringify(appState));
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initDeviceSelect();
+            initMemberSelects();
+            renderPortfolioView();
+            renderDashboard();
+            renderTaskList();
+            renderDHFMatrix();
+            renderTeamGrid();
+        });
+
+        // Render Portfolio Timeline Summary
+        function renderPortfolioView() {
+            const devices = appState.devices;
+            const allTasks = appState.tasks;
+
+            const totalDevices = devices.length;
+            const totalTasks = allTasks.length;
+            const completedTasks = allTasks.filter(t => t.status === '승인완료').length;
+            const pendingTasks = allTasks.filter(t => t.status === '검토대기').length;
+            const driveDocs = allTasks.filter(t => t.driveUrl && t.driveUrl.trim() !== '').length;
+            const avgProgress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+            document.getElementById('portTotalDevices').innerText = `${totalDevices}개`;
+            document.getElementById('portAvgProgress').innerText = `${avgProgress}%`;
+            document.getElementById('portTotalDHF').innerText = `${driveDocs}건`;
+            document.getElementById('portPendingReview').innerText = `${pendingTasks}건`;
+
+            const container = document.getElementById('portfolioCardsContainer');
+            container.innerHTML = '';
+
+            devices.forEach(dev => {
+                const devTasks = allTasks.filter(t => t.deviceId === dev.id);
+                const devTotal = devTasks.length;
+                const devDone = devTasks.filter(t => t.status === '승인완료').length;
+                const devPending = devTasks.filter(t => t.status === '검토대기').length;
+                const devDocs = devTasks.filter(t => t.driveUrl && t.driveUrl.trim() !== '').length;
+                const devProgress = devTotal > 0 ? Math.round((devDone / devTotal) * 100) : 0;
+
+                let currentActiveStage = "7.3.2";
+                let activeStageName = ISO_PHASES["7.3.2"].title;
+                const phaseKeys = Object.keys(ISO_PHASES);
+
+                for (let key of phaseKeys) {
+                    const pTasks = devTasks.filter(t => t.phase === key);
+                    if (pTasks.length > 0) {
+                        const allDone = pTasks.every(t => t.status === '승인완료');
+                        currentActiveStage = key;
+                        activeStageName = ISO_PHASES[key].title;
+                        if (!allDone) break;
+                    }
+                }
+
+                const timelineStepsHtml = phaseKeys.map((pKey, idx) => {
+                    const phaseInfo = ISO_PHASES[pKey];
+                    const pTasks = devTasks.filter(t => t.phase === pKey);
+                    const pDone = pTasks.filter(t => t.status === '승인완료').length;
+                    const pTotal = pTasks.length;
+
+                    let stepStatusClass = "bg-slate-200 text-slate-500 border-slate-300";
+                    let stepLineClass = "bg-slate-200";
+                    let isCurrent = (pKey === currentActiveStage);
+
+                    if (pTotal > 0 && pDone === pTotal) {
+                        stepStatusClass = "bg-emerald-500 text-white border-emerald-500 shadow-sm";
+                        stepLineClass = "bg-emerald-500";
+                    } else if (pTotal > 0 && pDone < pTotal) {
+                        stepStatusClass = "bg-amber-500 text-white border-amber-500 shadow-sm animate-pulse";
+                        stepLineClass = "bg-amber-300";
+                    } else if (isCurrent) {
+                        stepStatusClass = "bg-blue-600 text-white border-blue-600 ring-2 ring-blue-300";
+                    }
+
+                    return `
+                        <div class="flex-1 flex flex-col items-center relative group cursor-pointer" onclick="goToDevicePhase('${dev.id}', '${pKey}')">
+                            ${idx < phaseKeys.length - 1 ? `<div class="absolute top-4 left-1/2 w-full h-1 ${stepLineClass} -z-0"></div>` : ''}
+                            <div class="w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold ${stepStatusClass} relative z-10 transition group-hover:scale-110">
+                                ${pDone === pTotal && pTotal > 0 ? '<i class="fa-solid fa-check text-[10px]"></i>' : (idx + 1)}
+                            </div>
+                            <div class="mt-2 text-center">
+                                <span class="block text-[11px] font-bold text-slate-700">${pKey}</span>
+                                <span class="hidden md:block text-[10px] text-slate-500 line-clamp-1 max-w-[80px]" title="${phaseInfo.title}">${phaseInfo.title}</span>
+                                <span class="text-[9px] font-medium text-slate-400 mt-0.5">${pDone}/${pTotal} Task</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                const cardHtml = `
+                    <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5 hover:shadow-md transition">
+                        <div class="flex flex-col md:flex-row md:items-center justify-between pb-4 border-b border-slate-100 gap-3">
+                            <div class="flex items-start gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-medical-50 text-medical-600 flex items-center justify-center font-bold text-lg border border-medical-200">
+                                    <i class="fa-solid fa-microchip"></i>
+                                </div>
+                                <div>
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <h3 class="font-bold text-slate-800 text-base">${dev.name}</h3>
+                                        <span class="text-[11px] font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">${dev.riskClass}</span>
+                                        <span class="text-[11px] font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">현재 단계: ${currentActiveStage} ${activeStageName}</span>
+                                    </div>
+                                    <p class="text-xs text-slate-500 mt-0.5">${dev.desc || '설명 없음'}</p>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center gap-3 justify-between md:justify-end">
+                                <div class="text-right text-xs">
+                                    <div class="text-slate-400">개발 일정</div>
+                                    <div class="font-semibold text-slate-700">${dev.startDate || '미정'} ~ ${dev.targetDate || '미정'}</div>
+                                </div>
+                                <button onclick="selectDeviceAndGo('${dev.id}', 'dashboard')" class="bg-medical-600 hover:bg-medical-700 text-white text-xs font-bold px-3.5 py-2 rounded-lg shadow-sm transition flex items-center gap-1.5 whitespace-nowrap">
+                                    이 기기 상세 관리 <i class="fa-solid fa-arrow-right"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="py-5">
+                            <div class="text-xs font-bold text-slate-700 mb-3 flex items-center justify-between">
+                                <span class="flex items-center gap-1.5"><i class="fa-solid fa-bars-progress text-medical-600"></i> ISO 13485 개발 라이프사이클 타임라인</span>
+                                <span class="text-slate-500">진척률: <strong class="text-medical-600">${devProgress}%</strong> (${devDone}/${devTotal} Task 완료)</span>
+                            </div>
+                            <div class="flex items-center justify-between relative px-2">
+                                ${timelineStepsHtml}
+                            </div>
+                        </div>
+
+                        <div class="pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2">
+                            <div class="w-full sm:w-1/2 flex items-center gap-2">
+                                <span class="font-medium">전체 진척도:</span>
+                                <div class="flex-1 bg-slate-100 h-2 rounded-full overflow-hidden">
+                                    <div class="bg-gradient-to-r from-medical-500 to-emerald-500 h-2 rounded-full transition-all duration-500" style="width: ${devProgress}%"></div>
+                                </div>
+                                <span class="font-bold text-slate-700">${devProgress}%</span>
+                            </div>
+                            <div class="flex items-center gap-4 text-xs">
+                                <span><i class="fa-brands fa-google-drive text-amber-500"></i> 연동 DHF: <strong class="text-slate-800">${devDocs}건</strong></span>
+                                <span><i class="fa-solid fa-hourglass-half text-amber-500"></i> 승인 대기: <strong class="text-amber-600">${devPending}건</strong></span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.insertAdjacentHTML('beforeend', cardHtml);
+            });
+        }
+
+        function selectDeviceAndGo(deviceId, tabTarget) {
+            appState.currentDeviceId = deviceId;
+            document.getElementById('deviceSelect').value = deviceId;
+            saveState();
+            switchDevice(deviceId);
+            switchTab(tabTarget);
+        }
+
+        function goToDevicePhase(deviceId, phaseKey) {
+            appState.currentDeviceId = deviceId;
+            document.getElementById('deviceSelect').value = deviceId;
+            saveState();
+            switchDevice(deviceId);
+            filterByPhaseAndNav(phaseKey);
+        }
+
+        function switchDevice(deviceId) {
+            appState.currentDeviceId = deviceId;
+            saveState();
+            const dev = appState.devices.find(d => d.id === deviceId);
+            if (dev) {
+                document.getElementById('currentDeviceClass').innerText = dev.riskClass;
+            }
+            renderDashboard();
+            renderTaskList();
+            renderDHFMatrix();
+        }
+
+        function initDeviceSelect() {
+            const select = document.getElementById('deviceSelect');
+            select.innerHTML = appState.devices.map(d => 
+                `<option value="${d.id}" ${d.id === appState.currentDeviceId ? 'selected' : ''}>${d.name}</option>`
+            ).join('');
+
+            const dev = appState.devices.find(d => d.id === appState.currentDeviceId) || appState.devices[0];
+            if (dev) {
+                document.getElementById('currentDeviceClass').innerText = dev.riskClass;
+            }
+        }
+
+        function initMemberSelects() {
+            const filterSelect = document.getElementById('filterAssignee');
+            const modalAssignee = document.getElementById('modalTaskAssignee');
+            const modalReviewer = document.getElementById('modalTaskReviewer');
+
+            const filterOptions = '<option value="ALL">전체 담당자</option>' + 
+                appState.members.map(m => `<option value="${m.id}">${m.name} (${m.role})</option>`).join('');
+            
+            const modalOptions = appState.members.map(m => `<option value="${m.id}">${m.name} (${m.role})</option>`).join('');
+
+            filterSelect.innerHTML = filterOptions;
+            modalAssignee.innerHTML = modalOptions;
+            modalReviewer.innerHTML = '<option value="">선택 안함</option>' + modalOptions;
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active', 'text-medical-600', 'border-medical-600');
+                btn.classList.add('text-slate-500', 'border-transparent');
+            });
+
+            const activeBtn = document.getElementById(`tab-${tabName}`);
+            if (activeBtn) {
+                activeBtn.classList.add('active', 'text-medical-600', 'border-medical-600');
+                activeBtn.classList.remove('text-slate-500', 'border-transparent');
+            }
+
+            document.getElementById('view-portfolio').classList.add('hidden');
+            document.getElementById('view-dashboard').classList.add('hidden');
+            document.getElementById('view-tasks').classList.add('hidden');
+            document.getElementById('view-dhf').classList.add('hidden');
+            document.getElementById('view-team').classList.add('hidden');
+
+            document.getElementById(`view-${tabName}`).classList.remove('hidden');
+
+            if (tabName === 'portfolio') {
+                renderPortfolioView();
+            } else if (tabName === 'dashboard') {
+                renderDashboard();
+            } else if (tabName === 'dhf') {
+                renderDHFMatrix();
+            }
+        }
+
+        function updateKPIs() {
+            const currentTasks = appState.tasks.filter(t => t.deviceId === appState.currentDeviceId);
+            const total = currentTasks.length;
+            const completed = currentTasks.filter(t => t.status === '승인완료').length;
+            const pending = currentTasks.filter(t => t.status === '검토대기').length;
+            const driveCount = currentTasks.filter(t => t.driveUrl && t.driveUrl.trim() !== '').length;
+
+            const rate = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+            document.getElementById('statTotalTasks').innerText = total;
+            document.getElementById('statProgressRate').innerText = `${rate}%`;
+            document.getElementById('statDriveFiles').innerText = `${driveCount}개`;
+            document.getElementById('statPendingReview').innerText = pending;
+        }
+
+        function renderDashboard() {
+            updateKPIs();
+            const currentTasks = appState.tasks.filter(t => t.deviceId === appState.currentDeviceId);
+
+            const pipelineContainer = document.getElementById('phasePipelineContainer');
+            pipelineContainer.innerHTML = '';
+
+            Object.keys(ISO_PHASES).forEach(phaseKey => {
+                const phaseInfo = ISO_PHASES[phaseKey];
+                const phaseTasks = currentTasks.filter(t => t.phase === phaseKey);
+                const doneCount = phaseTasks.filter(t => t.status === '승인완료').length;
+                const totalCount = phaseTasks.length;
+                const percent = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
+
+                const cardHtml = `
+                    <div onclick="filterByPhaseAndNav('${phaseKey}')" class="bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl p-3 cursor-pointer transition flex flex-col justify-between group">
+                        <div>
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded text-white ${phaseInfo.color}">${phaseKey}</span>
+                                <span class="text-[10px] text-slate-400 font-semibold">${doneCount}/${totalCount}</span>
+                            </div>
+                            <h4 class="text-xs font-bold text-slate-800 line-clamp-1 group-hover:text-medical-600 transition" title="${phaseInfo.title}">${phaseInfo.title}</h4>
+                        </div>
+                        <div class="mt-3">
+                            <div class="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                                <div class="${phaseInfo.color} h-1.5 rounded-full transition-all duration-500" style="width: ${percent}%"></div>
+                            </div>
+                            <div class="text-[10px] text-right text-slate-500 font-medium mt-1">${percent}%</div>
+                        </div>
+                    </div>
+                `;
+                pipelineContainer.insertAdjacentHTML('beforeend', cardHtml);
+            });
+
+            renderCharts(currentTasks);
+
+            const recentList = document.getElementById('recentActivityList');
+            recentList.innerHTML = '';
+
+            if (currentTasks.length === 0) {
+                recentList.innerHTML = `<p class="text-xs text-slate-400 py-4 text-center">등록된 Task 업무 기록이 없습니다.</p>`;
+                return;
+            }
+
+            const sortedTasks = [...currentTasks].reverse().slice(0, 5);
+            sortedTasks.forEach(task => {
+                const assignee = appState.members.find(m => m.id === task.assigneeId)?.name || '미정';
+                const statusBadge = getStatusBadgeHTML(task.status);
+                const hasDrive = task.driveUrl ? `<a href="${task.driveUrl}" target="_blank" class="text-xs text-amber-600 font-semibold hover:underline flex items-center gap-1"><i class="fa-brands fa-google-drive"></i> ${task.driveDocName || '산출물'}</a>` : '';
+
+                const itemHtml = `
+                    <div class="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div class="flex items-start gap-3">
+                            <div class="mt-0.5 px-2 py-0.5 text-[10px] font-bold text-white rounded ${ISO_PHASES[task.phase]?.color || 'bg-slate-500'}">
+                                ${task.phase}
+                            </div>
+                            <div>
+                                <h4 class="text-xs font-bold text-slate-800 hover:text-medical-600 cursor-pointer" onclick="openEditTaskModal('${task.id}')">${task.title}</h4>
+                                <p class="text-xs text-slate-500 line-clamp-1 mt-0.5">${task.log || '상세 진행 내역 미기재'}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3 text-xs text-slate-500 pl-10 sm:pl-0">
+                            ${hasDrive}
+                            <span class="font-medium text-slate-700">${assignee}</span>
+                            ${statusBadge}
+                        </div>
+                    </div>
+                `;
+                recentList.insertAdjacentHTML('beforeend', itemHtml);
+            });
+        }
+
+        function renderCharts(tasks) {
+            const statusCounts = {
+                '진행전': tasks.filter(t => t.status === '진행전').length,
+                '진행중': tasks.filter(t => t.status === '진행중').length,
+                '검토대기': tasks.filter(t => t.status === '검토대기').length,
+                '승인완료': tasks.filter(t => t.status === '승인완료').length
+            };
+
+            const ctxStatus = document.getElementById('statusChart').getContext('2d');
+            if (statusChartInstance) statusChartInstance.destroy();
+            statusChartInstance = new Chart(ctxStatus, {
+                type: 'doughnut',
+                data: {
+                    labels: ['진행전', '진행중', '검토대기', '승인완료'],
+                    datasets: [{
+                        data: Object.values(statusCounts),
+                        backgroundColor: ['#cbd5e1', '#3b82f6', '#f59e0b', '#10b981']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } }
+                }
+            });
+
+            const phaseLabels = Object.keys(ISO_PHASES);
+            const phaseRates = phaseLabels.map(key => {
+                const phaseTasks = tasks.filter(t => t.phase === key);
+                if (phaseTasks.length === 0) return 0;
+                const done = phaseTasks.filter(t => t.status === '승인완료').length;
+                return Math.round((done / phaseTasks.length) * 100);
+            });
+
+            const ctxPhase = document.getElementById('phaseProgressChart').getContext('2d');
+            if (phaseChartInstance) phaseChartInstance.destroy();
+            phaseChartInstance = new Chart(ctxPhase, {
+                type: 'bar',
+                data: {
+                    labels: phaseLabels,
+                    datasets: [{
+                        label: '달성률 (%)',
+                        data: phaseRates,
+                        backgroundColor: '#0284c7',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { y: { min: 0, max: 100, ticks: { callback: v => v + '%' } } },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        function renderTaskList() {
+            const search = document.getElementById('taskSearch').value.toLowerCase();
+            const phaseFilter = document.getElementById('filterPhase').value;
+            const statusFilter = document.getElementById('filterStatus').value;
+            const assigneeFilter = document.getElementById('filterAssignee').value;
+
+            let tasks = appState.tasks.filter(t => t.deviceId === appState.currentDeviceId);
+
+            if (phaseFilter !== 'ALL') {
+                tasks = tasks.filter(t => t.phase === phaseFilter);
+            }
+            if (statusFilter !== 'ALL') {
+                tasks = tasks.filter(t => t.status === statusFilter);
+            }
+            if (assigneeFilter !== 'ALL') {
+                tasks = tasks.filter(t => t.assigneeId === assigneeFilter);
+            }
+            if (search.trim() !== '') {
+                tasks = tasks.filter(t => 
+                    t.title.toLowerCase().includes(search) || 
+                    (t.log && t.log.toLowerCase().includes(search)) ||
+                    (t.driveDocName && t.driveDocName.toLowerCase().includes(search))
+                );
+            }
+
+            const tbody = document.getElementById('taskListTableBody');
+            tbody.innerHTML = '';
+
+            document.getElementById('taskCountText').innerText = `총 ${appState.tasks.filter(t => t.deviceId === appState.currentDeviceId).length}개의 Task 중 ${tasks.length}개 표시`;
+
+            if (tasks.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-slate-400 text-xs">조건에 해당하는 Task가 없습니다.</td></tr>`;
+                return;
+            }
+
+            tasks.forEach(task => {
+                const assignee = appState.members.find(m => m.id === task.assigneeId)?.name || '미정';
+                const reviewer = appState.members.find(m => m.id === task.reviewerId)?.name || '-';
+                const phaseObj = ISO_PHASES[task.phase];
+
+                const driveBtn = task.driveUrl 
+                    ? `<a href="${task.driveUrl}" target="_blank" class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 rounded-md text-xs font-semibold transition">
+                        <i class="fa-brands fa-google-drive text-amber-600"></i> ${task.driveDocName || '문서 보기'}
+                       </a>`
+                    : `<span class="text-slate-300 text-xs italic">미연동</span>`;
+
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50/80 transition cursor-pointer";
+                tr.innerHTML = `
+                    <td class="p-3.5 pl-5 whitespace-nowrap">
+                        <span class="text-[11px] font-bold px-2 py-0.5 rounded text-white ${phaseObj?.color || 'bg-slate-500'}">
+                            ${task.phase} ${phaseObj?.title || ''}
+                        </span>
+                    </td>
+                    <td class="p-3.5" onclick="openEditTaskModal('${task.id}')">
+                        <div class="font-bold text-slate-800 text-sm hover:text-medical-600">${task.title}</div>
+                        <div class="text-xs text-slate-500 line-clamp-1 mt-0.5">${task.log || '업무 진행내용 미기재'}</div>
+                    </td>
+                    <td class="p-3.5 whitespace-nowrap">
+                        <div class="text-xs font-semibold text-slate-800">${assignee}</div>
+                        <div class="text-[10px] text-slate-400">검토자: ${reviewer}</div>
+                    </td>
+                    <td class="p-3.5 whitespace-nowrap">
+                        ${getStatusBadgeHTML(task.status)}
+                    </td>
+                    <td class="p-3.5 whitespace-nowrap">
+                        ${driveBtn}
+                    </td>
+                    <td class="p-3.5 whitespace-nowrap text-xs text-slate-500">
+                        ${task.dueDate || '-'}
+                    </td>
+                    <td class="p-3.5 text-right pr-5 whitespace-nowrap">
+                        <button onclick="openEditTaskModal('${task.id}')" class="text-xs font-semibold text-medical-600 hover:text-medical-800 bg-medical-50 hover:bg-medical-100 px-2.5 py-1 rounded transition">
+                            <i class="fa-solid fa-pen-to-square"></i> 편집
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function filterByPhaseAndNav(phaseKey) {
+            document.getElementById('filterPhase').value = phaseKey;
+            switchTab('tasks');
+            renderTaskList();
+        }
+
+        function resetFilters() {
+            document.getElementById('taskSearch').value = '';
+            document.getElementById('filterPhase').value = 'ALL';
+            document.getElementById('filterStatus').value = 'ALL';
+            document.getElementById('filterAssignee').value = 'ALL';
+            renderTaskList();
+        }
+
+        function getStatusBadgeHTML(status) {
+            switch (status) {
+                case '승인완료':
+                    return `<span class="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200"><i class="fa-solid fa-circle-check text-[9px]"></i> 승인완료</span>`;
+                case '검토대기':
+                    return `<span class="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200"><i class="fa-solid fa-clock text-[9px]"></i> 검토대기</span>`;
+                case '진행중':
+                    return `<span class="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-200"><i class="fa-solid fa-spinner fa-spin text-[9px]"></i> 진행중</span>`;
+                default:
+                    return `<span class="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200"><i class="fa-solid fa-circle-minus text-[9px]"></i> 진행전</span>`;
+            }
+        }
+
+        function renderDHFMatrix() {
+            const currentDevice = appState.devices.find(d => d.id === appState.currentDeviceId);
+            document.getElementById('dhfDeviceTitle').innerText = `${currentDevice ? currentDevice.name : ''} DHF Index`;
+            document.getElementById('dhfGeneratedDate').innerText = new Date().toISOString().split('T')[0];
+
+            const tasks = appState.tasks.filter(t => t.deviceId === appState.currentDeviceId);
+            const tbody = document.getElementById('dhfMatrixTableBody');
+            tbody.innerHTML = '';
+
+            let totalDocs = 0;
+
+            Object.keys(ISO_PHASES).forEach(phaseKey => {
+                const phaseObj = ISO_PHASES[phaseKey];
+                const phaseTasks = tasks.filter(t => t.phase === phaseKey);
+
+                if (phaseTasks.length === 0) {
+                    const row = `
+                        <tr class="bg-slate-50/50">
+                            <td class="p-3 font-bold text-slate-700 whitespace-nowrap">${phaseKey} ${phaseObj.title}</td>
+                            <td class="p-3 text-slate-400 italic">${phaseObj.desc}</td>
+                            <td class="p-3 text-slate-400" colspan="4">등록된 DHF 문서 및 Task 없음</td>
+                        </tr>
+                    `;
+                    tbody.insertAdjacentHTML('beforeend', row);
+                } else {
+                    phaseTasks.forEach((task, index) => {
+                        if (task.driveUrl) totalDocs++;
+                        const assignee = appState.members.find(m => m.id === task.assigneeId)?.name || '-';
+                        const driveLink = task.driveUrl 
+                            ? `<a href="${task.driveUrl}" target="_blank" class="text-medical-600 hover:underline font-bold flex items-center gap-1">
+                                <i class="fa-brands fa-google-drive text-amber-500"></i> ${task.driveDocName || '구글 드라이브 산출물 보기'}
+                               </a>`
+                            : `<span class="text-slate-400 italic">미등록</span>`;
+
+                        const row = `
+                            <tr class="hover:bg-slate-50">
+                                ${index === 0 ? `<td class="p-3 font-bold text-slate-800 align-top border-r border-slate-200" rowSpan="${phaseTasks.length}">${phaseKey}<br><span class="text-slate-500 font-normal">${phaseObj.title}</span></td>` : ''}
+                                <td class="p-3 font-medium text-slate-700">${task.title}</td>
+                                <td class="p-3 text-slate-600 max-w-xs">${task.log || '-'}</td>
+                                <td class="p-3 text-slate-700 font-medium whitespace-nowrap">${assignee}</td>
+                                <td class="p-3 whitespace-nowrap">${getStatusBadgeHTML(task.status)}</td>
+                                <td class="p-3 whitespace-nowrap">${driveLink}</td>
+                            </tr>
+                        `;
+                        tbody.insertAdjacentHTML('beforeend', row);
+                    });
+                }
+            });
+
+            document.getElementById('dhfTotalDocsCount').innerText = totalDocs;
+        }
+
+        function printDHFReport() {
+            window.print();
+        }
+
+        function renderTeamGrid() {
+            const grid = document.getElementById('teamMembersGrid');
+            grid.innerHTML = '';
+
+            appState.members.forEach(m => {
+                const assignedTasks = appState.tasks.filter(t => t.assigneeId === m.id && t.deviceId === appState.currentDeviceId);
+                const completedCount = assignedTasks.filter(t => t.status === '승인완료').length;
+
+                const cardHtml = `
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-start justify-between">
+                        <div class="flex items-start gap-3">
+                            <div class="w-10 h-10 rounded-full bg-medical-100 text-medical-700 flex items-center justify-center font-bold text-base">
+                                ${m.name.substring(0, 1)}
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-slate-800 text-sm">${m.name}</h3>
+                                <p class="text-xs text-slate-500 font-medium">${m.role}</p>
+                                <p class="text-[11px] text-slate-400 mt-0.5"><i class="fa-regular fa-envelope"></i> ${m.email || '이메일 없음'}</p>
+                                
+                                <div class="mt-3 flex items-center gap-2">
+                                    <span class="text-[11px] bg-slate-100 text-slate-700 font-semibold px-2 py-0.5 rounded">할당된 Task: ${assignedTasks.length}건</span>
+                                    <span class="text-[11px] bg-emerald-50 text-emerald-700 font-semibold px-2 py-0.5 rounded">완료: ${completedCount}건</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                grid.insertAdjacentHTML('beforeend', cardHtml);
+            });
+        }
+
+        function openAddTaskModal() {
+            document.getElementById('taskForm').reset();
+            document.getElementById('taskId').value = '';
+            document.getElementById('taskModalTitle').innerText = '신규 ISO 13485 Task 추가';
+            document.getElementById('btnDeleteTask').classList.add('hidden');
+            document.getElementById('taskModal').classList.remove('hidden');
+        }
+
+        function openEditTaskModal(taskId) {
+            const task = appState.tasks.find(t => t.id === taskId);
+            if (!task) return;
+
+            document.getElementById('taskId').value = task.id;
+            document.getElementById('modalTaskPhase').value = task.phase;
+            document.getElementById('modalTaskTitle').value = task.title;
+            document.getElementById('modalTaskAssignee').value = task.assigneeId;
+            document.getElementById('modalTaskReviewer').value = task.reviewerId || '';
+            document.getElementById('modalTaskStatus').value = task.status;
+            document.getElementById('modalTaskDueDate').value = task.dueDate || '';
+            document.getElementById('modalTaskLog').value = task.log || '';
+            document.getElementById('modalDriveUrl').value = task.driveUrl || '';
+            document.getElementById('modalDriveDocName').value = task.driveDocName || '';
+
+            document.getElementById('taskModalTitle').innerText = 'ISO 13485 Task 및 산출물 수정';
+            document.getElementById('btnDeleteTask').classList.remove('hidden');
+            document.getElementById('taskModal').classList.remove('hidden');
+        }
+
+        function closeTaskModal() {
+            document.getElementById('taskModal').classList.add('hidden');
+        }
+
+        function saveTask(event) {
+            event.preventDefault();
+            const id = document.getElementById('taskId').value;
+            const phase = document.getElementById('modalTaskPhase').value;
+            const title = document.getElementById('modalTaskTitle').value;
+            const assigneeId = document.getElementById('modalTaskAssignee').value;
+            const reviewerId = document.getElementById('modalTaskReviewer').value;
+            const status = document.getElementById('modalTaskStatus').value;
+            const dueDate = document.getElementById('modalTaskDueDate').value;
+            const log = document.getElementById('modalTaskLog').value;
+            const driveUrl = document.getElementById('modalDriveUrl').value;
+            const driveDocName = document.getElementById('modalDriveDocName').value;
+
+            if (id) {
+                const task = appState.tasks.find(t => t.id === id);
+                if (task) {
+                    task.phase = phase;
+                    task.title = title;
+                    task.assigneeId = assigneeId;
+                    task.reviewerId = reviewerId;
+                    task.status = status;
+                    task.dueDate = dueDate;
+                    task.log = log;
+                    task.driveUrl = driveUrl;
+                    task.driveDocName = driveDocName;
+                }
+            } else {
+                const newTask = {
+                    id: 't-' + Date.now(),
+                    deviceId: appState.currentDeviceId,
+                    phase,
+                    title,
+                    assigneeId,
+                    reviewerId,
+                    status,
+                    dueDate,
+                    log,
+                    driveUrl,
+                    driveDocName
+                };
+                appState.tasks.push(newTask);
+            }
+
+            saveState();
+            closeTaskModal();
+            renderPortfolioView();
+            renderDashboard();
+            renderTaskList();
+            renderDHFMatrix();
+        }
+
+        function deleteTaskFromModal() {
+            const id = document.getElementById('taskId').value;
+            if (!id) return;
+            if (confirm('이 Task를 삭제하시겠습니까?')) {
+                appState.tasks = appState.tasks.filter(t => t.id !== id);
+                saveState();
+                closeTaskModal();
+                renderPortfolioView();
+                renderDashboard();
+                renderTaskList();
+                renderDHFMatrix();
+            }
+        }
+
+        function openNewDeviceModal() {
+            document.getElementById('newDeviceName').value = '';
+            document.getElementById('newDeviceDesc').value = '';
+            document.getElementById('newDeviceStartDate').value = '';
+            document.getElementById('newDeviceTargetDate').value = '';
+            document.getElementById('deviceModal').classList.remove('hidden');
+        }
+
+        function closeDeviceModal() {
+            document.getElementById('deviceModal').classList.add('hidden');
+        }
+
+        function saveNewDevice(event) {
+            event.preventDefault();
+            const name = document.getElementById('newDeviceName').value;
+            const riskClass = document.getElementById('newDeviceClass').value;
+            const desc = document.getElementById('newDeviceDesc').value;
+            const startDate = document.getElementById('newDeviceStartDate').value;
+            const targetDate = document.getElementById('newDeviceTargetDate').value;
+
+            const newDev = {
+                id: 'dev-' + Date.now(),
+                name,
+                riskClass,
+                desc,
+                startDate: startDate || new Date().toISOString().split('T')[0],
+                targetDate: targetDate || ''
+            };
+
+            appState.devices.push(newDev);
+            appState.currentDeviceId = newDev.id;
+            saveState();
+
+            initDeviceSelect();
+            closeDeviceModal();
+            renderPortfolioView();
+            renderDashboard();
+            renderTaskList();
+            renderDHFMatrix();
+        }
+
+        function openAddMemberModal() {
+            document.getElementById('memberName').value = '';
+            document.getElementById('memberRole').value = '';
+            document.getElementById('memberEmail').value = '';
+            document.getElementById('memberModal').classList.remove('hidden');
+        }
+
+        function closeMemberModal() {
+            document.getElementById('memberModal').classList.add('hidden');
+        }
+
+        function saveNewMember(event) {
+            event.preventDefault();
+            const name = document.getElementById('memberName').value;
+            const role = document.getElementById('memberRole').value;
+            const email = document.getElementById('memberEmail').value;
+
+            const newMember = {
+                id: 'm-' + Date.now(),
+                name,
+                role,
+                email
+            };
+
+            appState.members.push(newMember);
+            saveState();
+
+            initMemberSelects();
+            renderTeamGrid();
+            closeMemberModal();
+        }
+
+        function exportDataJSON() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appState, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `ISO13485_Data_${appState.currentDeviceId}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        }
+    </script>
+</body>
+</html>
